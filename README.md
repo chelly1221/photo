@@ -3,13 +3,13 @@
 NAS의 사진을 내장 Tailscale로 감상하고 Android 사진을 NAS에 자동 백업하는 개인 사진 보관함입니다. 노트·캘린더·주소록 시리즈의 Pretendard와 차분한 다크 테마를 공유합니다.
 
 - 웹: https://photo.3chan.kr
-- Android: https://photo.3chan.kr/downloads/photo-0.1.0.apk
+- Android: https://photo.3chan.kr/downloads/photo-0.2.0.apk
 - 저장소: https://github.com/chelly1221/photo
 
 ## 사용하기
 
 1. 웹 또는 Android 앱에서 Tailscale 계정으로 기기를 연결합니다. 서버의 허용 계정 및 tailnet ACL에 등록되어 있어야 합니다.
-2. **공유 폴더 연결**에서 NAS 공유 이름과 선택적인 하위 경로를 추가합니다. NAS 주소는 기존 NAS로 고정되어 있으며 계정 비밀번호는 서버에서만 관리합니다.
+2. **공유 폴더 연결**에서 NAS IP·계정·비밀번호를 입력합니다. 발견된 SMB·SFTP·WebDAV 중 사용할 방식을 선택하고, 공유 폴더와 하위 폴더를 직접 탐색해 **이 폴더 연결**을 누릅니다. 기존 NAS 주소가 기본값이며 다른 사설/Tailscale NAS IPv4 주소도 연결할 수 있습니다. 비밀번호는 서버에서만 보관합니다.
 3. 인덱싱이 진행되면 날짜별 사진, 폴더, 검색, 즐겨찾기, 촬영 위치 지도를 사용할 수 있습니다. 원본은 보존하고 서버가 480px 썸네일과 2048px 미리보기를 생성합니다.
 4. Android에서 백업 가능한 공유 폴더를 추가한 뒤 **백업**에서 저장 위치, 사진 권한, Wi-Fi 전용 여부를 설정하고 자동 백업을 켭니다. 기본은 Wi-Fi 전용입니다. 웹에서는 파일 선택 업로드를 지원합니다.
 
@@ -21,7 +21,7 @@ NAS의 사진을 내장 Tailscale로 감상하고 Android 사진을 NAS에 자�
 - 날짜·파일명 검색, 정렬, 폴더 탐색, 즐겨찾기
 - EXIF 촬영 날짜·카메라·위치 정보, 확대, 원본 다운로드
 - 지도 클러스터 및 같은 좌표의 사진별 선택
-- 공유 폴더 추가·일시 중지, 수동/주기 인덱싱, NAS 오프라인 시 기존 인덱스 보존
+- NAS 프로토콜 검색, GUI 폴더 탐색·선택, 공유 폴더 추가·일시 중지, 수동/주기 인덱싱, NAS 오프라인 시 기존 인덱스 보존
 - Android MediaStore 및 WorkManager 자동 백업, 네이티브 인증 브라우저
 - 한국어 반응형 UI, PWA, favicon, Android 일반·적응형·단색 아이콘
 
@@ -31,7 +31,7 @@ Android 백그라운드 실행 시점은 OS 절전·네트워크·배터리 정�
 
 ## 개발
 
-Node.js 22.13 이상, npm, Git이 필요합니다. WASM은 별도 Go 빌드가 필요합니다.
+Node.js 22.13 이상, npm, Git이 필요합니다. WASM은 별도 Go 빌드가 필요합니다. Linux NAS 서버는 rclone 1.60 이상, FUSE3, OpenSSH 클라이언트가 필요합니다.
 
 ```sh
 npm ci

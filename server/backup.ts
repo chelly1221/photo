@@ -19,13 +19,23 @@ export class Backups {
     const source = this.lib.source(input.sourceId);
     if (!source.backup || !source.enabled)
       throw new Error("백업을 허용한 공유 폴더를 선택해 주세요.");
-    const root=await this.lib.root(source);
+    const root = await this.lib.root(source);
     const existing = this.lib.db
       .prepare("SELECT * FROM backups WHERE digest=? AND sourceId=?")
       .get(input.digest, input.sourceId);
     if (existing) {
-      try {const file=await this.lib.assertInside(root,path.join(root,String(existing.relativePath)));if((await fs.stat(file)).size===input.bytes)return {complete:true};} catch {/* Restore a missing backup on a later upload. */}
-      this.lib.db.prepare('DELETE FROM backups WHERE digest=? AND sourceId=?').run(input.digest,input.sourceId);
+      try {
+        const file = await this.lib.assertInside(
+          root,
+          path.join(root, String(existing.relativePath)),
+        );
+        if ((await fs.stat(file)).size === input.bytes) return { complete: true };
+      } catch {
+        /* Restore a missing backup on a later upload. */
+      }
+      this.lib.db
+        .prepare("DELETE FROM backups WHERE digest=? AND sourceId=?")
+        .run(input.digest, input.sourceId);
     }
     const previous = this.lib.db
       .prepare("SELECT * FROM uploads WHERE digest=? AND sourceId=? AND bytes=?")
@@ -97,7 +107,7 @@ export class Backups {
       for await (const chunk of createReadStream(this.temp(id))) hash.update(chunk);
       if (hash.digest("hex") !== up.digest) {
         await fs.unlink(this.temp(id));
-        this.lib.db.prepare('DELETE FROM uploads WHERE id=?').run(id);
+        this.lib.db.prepare("DELETE FROM uploads WHERE id=?").run(id);
         throw new Error("파일 검증에 실패했어요. 다시 백업해 주세요.");
       }
       const source = this.lib.source(up.sourceId);
@@ -122,14 +132,16 @@ export class Backups {
         ].includes(extension)
       )
         throw new Error("지원하지 않는 사진 형식이에요.");
-      const filename = path.basename(up.name,extension).slice(0,80)+'--'+up.digest+extension;
+      const filename =
+        path.basename(up.name, extension).slice(0, 80) + "--" + up.digest + extension;
       const target = path.join(directory, filename);
       const temp = path.join(directory, "." + id + ".part");
       await fs.copyFile(this.temp(id), temp);
       await this.lib.assertInside(root, temp);
-      // Atomic no-clobber publication on the same NAS filesystem.
+      // FUSE remote backends do not support hard links. Preserve no-clobber writes.
       try {
-        await fs.link(temp, target);
+        if (source.protocol) await fs.copyFile(temp, target, 1);
+        else await fs.link(temp, target);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "EEXIST") {
           const check = createHash("sha256");

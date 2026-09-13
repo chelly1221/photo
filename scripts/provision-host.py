@@ -9,8 +9,9 @@ credential=Path('/etc/photo/nas.credentials')
 if not credential.exists():
     shutil.copyfile('/etc/note/nas.credentials',credential);credential.chmod(0o600)
 subprocess.run(['install','-m','755',str(base/'scripts/photo-mount.py'),'/usr/local/sbin/photo-mount'],check=True)
+subprocess.run(['install','-m','755',str(base/'scripts/photo-nas.py'),'/usr/local/sbin/photo-nas'],check=True)
 sudo=Path('/etc/sudoers.d/photo-mount')
-sudo.write_text('3chan ALL=(root) NOPASSWD: /usr/local/sbin/photo-mount\n');sudo.chmod(0o440)
+sudo.write_text('3chan ALL=(root) NOPASSWD: /usr/local/sbin/photo-mount, /usr/local/sbin/photo-nas\n');sudo.chmod(0o440)
 subprocess.run(['visudo','-cf',str(sudo)],check=True)
 if not (base/'.env').exists():
     status=json.loads(subprocess.check_output(['tailscale','status','--json']))

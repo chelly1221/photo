@@ -18,6 +18,9 @@ export type Source = {
   enabled: number;
   error: string | null;
   scannedAt: number | null;
+  host?: string | null;
+  protocol?: string | null;
+  connectionId?: string | null;
 };
 export type Photo = {
   id: string;
@@ -83,8 +86,24 @@ export class Library {
       CREATE TABLE IF NOT EXISTS uploads(id TEXT PRIMARY KEY,sourceId TEXT NOT NULL,name TEXT NOT NULL,bytes INTEGER NOT NULL,offset INTEGER NOT NULL DEFAULT 0,digest TEXT NOT NULL,createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS backups(digest TEXT NOT NULL,sourceId TEXT NOT NULL,relativePath TEXT NOT NULL,createdAt INTEGER NOT NULL,PRIMARY KEY(digest,sourceId));
       CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);`);
-    if(!this.db.prepare('PRAGMA table_info(backups)').all().some(row=>row.name==='sourceId'&&Number(row.pk)>0)){
-      this.db.exec('BEGIN; ALTER TABLE backups RENAME TO backups_legacy; CREATE TABLE backups(digest TEXT NOT NULL,sourceId TEXT NOT NULL,relativePath TEXT NOT NULL,createdAt INTEGER NOT NULL,PRIMARY KEY(digest,sourceId)); INSERT INTO backups SELECT * FROM backups_legacy; DROP TABLE backups_legacy; COMMIT;');
+    if (
+      !this.db
+        .prepare("PRAGMA table_info(backups)")
+        .all()
+        .some((row) => row.name === "sourceId" && Number(row.pk) > 0)
+    ) {
+      this.db.exec(
+        "BEGIN; ALTER TABLE backups RENAME TO backups_legacy; CREATE TABLE backups(digest TEXT NOT NULL,sourceId TEXT NOT NULL,relativePath TEXT NOT NULL,createdAt INTEGER NOT NULL,PRIMARY KEY(digest,sourceId)); INSERT INTO backups SELECT * FROM backups_legacy; DROP TABLE backups_legacy; COMMIT;",
+      );
+    }
+    for (const column of ["host", "protocol", "connectionId"]) {
+      if (
+        !this.db
+          .prepare("PRAGMA table_info(sources)")
+          .all()
+          .some((row) => row.name === column)
+      )
+        this.db.exec(`ALTER TABLE sources ADD COLUMN ${column} TEXT`);
     }
     sharp.concurrency(1);
     sharp.cache({ memory: 64, files: 0, items: 50 });
@@ -135,6 +154,34 @@ export class Library {
       throw Object.assign(new Error("폴더 범위를 벗어났어요."), { statusCode: 403 });
     return realTarget;
   }
+  async addNasSource(
+    input: { name: string; connectionId: string; path: string; backup: boolean },
+    mount: (id: string) => Promise<{ host: string; protocol: string; path: string }>,
+  ) {
+    safeRelative(input.path);
+    if (this.sources().some((s) => s.connectionId === input.connectionId && s.share === input.path))
+      throw new Error("이미 연결된 폴더예요.");
+    const id = randomUUID();
+    const remote = await mount(id);
+    const base = path.join(this.config.mountRoot, id);
+    await this.assertInside(base, base);
+    this.db
+      .prepare(
+        "INSERT INTO sources(id,name,share,folder,backup,host,protocol,connectionId) VALUES(?,?,?,?,?,?,?,?)",
+      )
+      .run(
+        id,
+        input.name,
+        remote.path,
+        "",
+        input.backup ? 1 : 0,
+        remote.host,
+        remote.protocol,
+        input.connectionId,
+      );
+    void this.startScan();
+    return this.source(id);
+  }
   async root(source: Source) {
     const base =
       this.config.testRoots?.[source.share] ?? path.join(this.config.mountRoot, source.id);
@@ -142,8 +189,10 @@ export class Library {
       const { stdout } = await exec("findmnt", ["-rn", "-M", base, "-o", "FSTYPE,SOURCE"], {
         timeout: 5000,
       });
-      if (!stdout.trim().startsWith("cifs ") || !stdout.includes("//100.75.89.101/"))
-        throw new Error("NAS가 연결되지 않았어요.");
+      const valid = source.protocol
+        ? stdout.trim() === `fuse.rclone photo-${source.id}`
+        : stdout.trim().startsWith("cifs ") && stdout.includes("//100.75.89.101/");
+      if (!valid) throw new Error("NAS가 연결되지 않았어요.");
     }
     return this.assertInside(base, path.join(base, source.folder));
   }
@@ -257,14 +306,14 @@ export class Library {
     await fs.access(file);
     return file;
   }
-  startScan(retryErrors=false) {
+  startScan(retryErrors = false) {
     if (this.work) return this.work;
     this.work = this.scan(retryErrors).finally(() => {
       this.work = null;
     });
     return this.work;
   }
-  async scan(retryErrors=false) {
+  async scan(retryErrors = false) {
     this.scanning = true;
     this.progress = { processed: 0, found: 0, errors: 0, startedAt: Date.now(), finishedAt: 0 };
     try {
@@ -310,7 +359,25 @@ export class Library {
                   .digest("hex")
                   .slice(0, 16);
                 const old = this.db.prepare("SELECT version,error FROM photos WHERE id=?").get(id);
-                const cached=old?.version===version&&!old.error&&await Promise.all(['thumb','preview'].map(kind=>fs.access(path.join(this.config.stateDir,'thumbs',`${id}-${version}-${kind}.webp`)).then(()=>true,()=>false))).then(results=>results.every(Boolean));
+                const cached =
+                  old?.version === version &&
+                  !old.error &&
+                  (await Promise.all(
+                    ["thumb", "preview"].map((kind) =>
+                      fs
+                        .access(
+                          path.join(
+                            this.config.stateDir,
+                            "thumbs",
+                            `${id}-${version}-${kind}.webp`,
+                          ),
+                        )
+                        .then(
+                          () => true,
+                          () => false,
+                        ),
+                    ),
+                  ).then((results) => results.every(Boolean)));
                 if (old?.version === version && (cached || (old.error && !retryErrors))) {
                   this.db.prepare("UPDATE photos SET seen=? WHERE id=?").run(scanId, id);
                   this.progress.processed++;
@@ -390,7 +457,7 @@ export class Library {
                     error,
                     scanId,
                   );
-                if (old?.version && old.version!==version) {
+                if (old?.version && old.version !== version) {
                   for (const kind of ["thumb", "preview"])
                     await fs
                       .unlink(

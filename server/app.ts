@@ -4,7 +4,8 @@ import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import type { Library } from "./library";
 import { Backups } from "./backup";
-export function createApp(lib: Library, allowedLogins: string[]) {
+import { NasService, nasAddress, nasPath } from "./nas";
+export function createApp(lib: Library, allowedLogins: string[], nas?: NasService) {
   if (!allowedLogins.length) throw new Error("Explicit Tailscale account allowlist required");
   const allowed = new Set(allowedLogins.map((x) => x.toLowerCase()));
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 ** 2, requestTimeout: 60000 });
@@ -23,21 +24,78 @@ export function createApp(lib: Library, allowedLogins: string[]) {
   });
   app.setErrorHandler((error, _req, reply) => {
     const status = error instanceof z.ZodError ? 400 : Number((error as any).statusCode ?? 400);
-    reply
-      .code(status >= 400 && status < 600 ? status : 500)
-      .send({
-        error:
-          error instanceof z.ZodError
-            ? "입력 내용을 확인해 주세요."
-            : error instanceof Error && !("code" in error)
-              ? error.message
-              : "서버 연결과 폴더 권한을 확인해 주세요.",
-      });
+    reply.code(status >= 400 && status < 600 ? status : 500).send({
+      error:
+        error instanceof z.ZodError
+          ? "입력 내용을 확인해 주세요."
+          : error instanceof Error && !("code" in error)
+            ? error.message
+            : "서버 연결과 폴더 권한을 확인해 주세요.",
+    });
   });
   app.get("/api/health", () => ({ ok: true }));
   app.get("/api/identity", (req) => ({ login: req.headers["tailscale-user-login"] }));
   app.get("/api/status", () => lib.stats());
   app.get("/api/sources", () => lib.sources());
+  const nasService = () => {
+    if (!nas)
+      throw new Error("서버 NAS 탐색 도우미를 준비하고 있어요. 잠시 후 다시 시도해 주세요.");
+    return nas;
+  };
+  const owner = (req: { headers: Record<string, unknown> }) =>
+    String(req.headers["tailscale-user-login"]).toLowerCase();
+  app.post("/api/nas/discover", (req) =>
+    nasService().discover(owner(req), z.object({ host: nasAddress }).strict().parse(req.body).host),
+  );
+  app.post("/api/nas/connect", (req) =>
+    nasService().connect(
+      owner(req),
+      z
+        .object({
+          scanId: z.string().uuid(),
+          optionId: z.string().max(50),
+          username: z
+            .string()
+            .min(1)
+            .max(256)
+            .regex(/^[^\r\n\0]+$/),
+          password: z.string().max(1024),
+        })
+        .strict()
+        .parse(req.body),
+    ),
+  );
+  app.post("/api/nas/browse", (req) => {
+    const v = z
+      .object({
+        connectionId: z.string().uuid(),
+        path: nasPath,
+        offset: z.number().int().min(0).max(100000).default(0),
+      })
+      .strict()
+      .parse(req.body);
+    return nasService().browse(owner(req), v.connectionId, v.path, v.offset);
+  });
+  app.post("/api/nas/forget", (req) =>
+    nasService().forget(
+      owner(req),
+      z.object({ connectionId: z.string().uuid() }).strict().parse(req.body).connectionId,
+    ),
+  );
+  app.post("/api/nas/sources", (req) => {
+    const v = z
+      .object({
+        name: z.string().trim().min(1).max(80),
+        connectionId: z.string().uuid(),
+        path: nasPath,
+        backup: z.boolean(),
+      })
+      .strict()
+      .parse(req.body);
+    return lib.addNasSource(v, (id) =>
+      nasService().mount(owner(req), v.connectionId, v.path, id, v.backup),
+    );
+  });
   app.post("/api/sources", (req) =>
     lib.addSource(
       z

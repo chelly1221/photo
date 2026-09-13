@@ -1401,4 +1401,363 @@ svg {
     scroll-behavior: auto !important;
   }
 }
-.map-selection{position:absolute;right:18px;top:18px;bottom:24px;width:320px;z-index:600;background:#1d1d1d;border:1px solid #ffffff20;border-radius:12px;display:flex;flex-direction:column;overflow:hidden}.map-selection header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.map-selection h2{font-size:14px}.map-selection h2 span{font-size:11px;color:#aaa;margin-left:6px}.map-selection>div{overflow:auto;padding:8px}.map-selection-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:8px;border-radius:7px}.map-selection-item img,.map-thumb-placeholder{display:block;width:55px;height:55px;object-fit:cover;background:#292929;border-radius:4px;flex:none}.map-selection-item>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.map-selection-item small{display:block;font-size:10px;color:#aaa;margin-top:6px}@media(max-width:640px){.map-selection{top:auto;left:10px;right:10px;bottom:12px;width:auto;max-height:55%}}
+.map-selection {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  bottom: 24px;
+  width: 320px;
+  z-index: 600;
+  background: #1d1d1d;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.map-selection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.map-selection h2 {
+  font-size: 14px;
+}
+.map-selection h2 span {
+  font-size: 11px;
+  color: #aaa;
+  margin-left: 6px;
+}
+.map-selection > div {
+  overflow: auto;
+  padding: 8px;
+}
+.map-selection-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border-radius: 7px;
+}
+.map-selection-item img,
+.map-thumb-placeholder {
+  display: block;
+  width: 55px;
+  height: 55px;
+  object-fit: cover;
+  background: #292929;
+  border-radius: 4px;
+  flex: none;
+}
+.map-selection-item > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.map-selection-item small {
+  display: block;
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 6px;
+}
+@media (max-width: 640px) {
+  .map-selection {
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 12px;
+    width: auto;
+    max-height: 55%;
+  }
+}
+.nas-connect {
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  background: #1d1d1d;
+}
+.nas-heading {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.nas-heading > svg {
+  margin-top: 3px;
+  color: #b8b8b8;
+  flex-shrink: 0;
+}
+.nas-heading h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.nas-heading p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+.nas-steps {
+  list-style: none;
+  display: flex;
+  gap: 22px;
+  padding: 0;
+  margin: 24px 0;
+  color: #a0a0a0;
+  font-size: 12px;
+}
+.nas-steps li {
+  padding-bottom: 8px;
+  border-bottom: 1px solid transparent;
+}
+.nas-steps li[aria-current] {
+  color: #ededed;
+  border-color: #ededed;
+}
+.source-form.nas-fields {
+  padding: 0;
+  margin: 20px 0 0;
+  border: 0;
+  background: none;
+  grid-template-columns: 1fr;
+}
+.nas-account {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.nas-account label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.nas-connect .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.nas-protocols {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.nas-protocol {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 18px 0;
+  border-bottom: 1px solid #ffffff10;
+  cursor: pointer;
+}
+.nas-protocol input {
+  margin: 4px 0 0;
+  accent-color: #ededed;
+  flex-shrink: 0;
+}
+.nas-protocol > span {
+  flex: 1;
+  min-width: 0;
+}
+.nas-protocol strong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.nas-protocol small {
+  font-size: 12px;
+  color: #a0a0a0;
+  font-weight: 400;
+}
+.nas-protocol span > span {
+  display: block;
+  margin-top: 6px;
+  color: #b9b9b9;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.nas-protocol .nas-fingerprint {
+  display: block;
+  margin-top: 9px;
+  overflow-wrap: anywhere;
+}
+.nas-protocol.unavailable {
+  cursor: default;
+  color: #a0a0a0;
+}
+.nas-protocol > svg {
+  color: #b6c1b5;
+  flex-shrink: 0;
+}
+.nas-browser {
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.nas-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px;
+  background: #222;
+  min-height: 48px;
+}
+.nas-breadcrumbs span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.nas-breadcrumbs button {
+  font-size: 13px;
+  padding: 6px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.nas-breadcrumbs [aria-current] {
+  color: #fff;
+  font-weight: 600;
+}
+.nas-browser-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid #ffffff10;
+}
+.nas-browser-tools > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.nas-browser-tools input {
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  padding: 8px 0;
+  border: 0;
+  font-size: 13px;
+}
+.nas-browser-tools svg {
+  flex-shrink: 0;
+}
+.nas-folder-list {
+  min-height: 190px;
+  max-height: 320px;
+  overflow: auto;
+}
+.nas-folder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  text-align: left;
+  border-bottom: 1px solid #ffffff10;
+}
+.nas-folder > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.nas-folder svg {
+  flex-shrink: 0;
+  color: #b8b8b8;
+}
+.nas-folder:hover {
+  background: #ffffff0b;
+}
+.nas-empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: #b9b9b9;
+}
+.nas-empty p {
+  margin: 8px 0;
+}
+.nas-empty span {
+  display: block;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #a0a0a0;
+}
+.nas-more {
+  margin: 12px auto;
+}
+.nas-selected {
+  display: flex;
+  gap: 9px;
+  color: #b9b9b9;
+  font-size: 12px;
+}
+.nas-selected strong {
+  display: block;
+  font-size: 14px;
+  color: #ededed;
+  margin-top: 5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.nas-feedback p {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 16px;
+  color: #b9b9b9;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.nas-feedback svg {
+  flex-shrink: 0;
+}
+.nas-feedback .nas-error {
+  color: #ededed;
+}
+@media (max-width: 640px) {
+  .nas-connect {
+    padding: 18px 14px;
+    margin: 18px 0;
+  }
+  .nas-account {
+    grid-template-columns: 1fr;
+  }
+  .nas-steps {
+    gap: 18px;
+  }
+  .nas-browser-tools {
+    flex-wrap: wrap;
+  }
+  .nas-browser-tools > label {
+    order: 3;
+    flex-basis: 100%;
+    padding: 0 5px;
+  }
+  .nas-browser-tools > .icon-button {
+    margin-left: auto;
+  }
+  .nas-folder-list {
+    max-height: 260px;
+  }
+}

@@ -59,6 +59,7 @@ import {
   subscribeTailEvents,
 } from "./lib/tailscale";
 import { backupFiles, backupPhone, native, PhotoBackup } from "./lib/backup";
+import NasConnect from './NasConnect';
 const MapView = lazy(() => import("./MapView"));
 type View = "all" | "favorites" | "folders" | "map" | "backup" | "settings";
 type Status = {
@@ -402,7 +403,6 @@ export default function App() {
   const [update, setUpdate] = useState<ServiceWorker | null>(null);
   const fetching = useRef(false);
   const generation = useRef(0);
-  const form = useRef<HTMLFormElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (entered) void ensureTailscale().catch((e) => setError(e.message));
@@ -563,30 +563,6 @@ export default function App() {
       setError((e as Error).message);
     }
   };
-  const addSource = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    const data = new FormData(e.currentTarget as HTMLFormElement);
-    try {
-      await api(
-        "/sources",
-        json("POST", {
-          name: data.get("name"),
-          share: data.get("share"),
-          folder: data.get("folder") || "",
-          backup: data.get("backup") === "on",
-        }),
-      );
-      setAdding(false);
-      form.current?.reset();
-      await refreshStatus();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
   const pickBackup = async (id: string) => {
     try {
       if (native && automatic) await PhotoBackup.configure({ enabled: true, wifiOnly: wifi, sourceId: id });
@@ -684,7 +660,7 @@ export default function App() {
         </main>
         <footer>
           사진 · 나만의 사진 보관함
-          <a href="/downloads/photo-0.1.0.apk">
+          <a href="/downloads/photo-0.2.0.apk">
             Android 앱 다운로드 <Download size={15} />
           </a>
         </footer>
@@ -761,7 +737,7 @@ export default function App() {
           {!status?.sources.length && <p>연결한 폴더가 없어요.</p>}
         </div>
         <div className="sidebar-bottom">
-          <a href="/downloads/photo-0.1.0.apk">
+          <a href="/downloads/photo-0.2.0.apk">
             <Download size={18} />
             Android 앱 다운로드
           </a>
@@ -1023,47 +999,15 @@ export default function App() {
                     추가
                   </button>
                 </div>
-                <p>100.75.89.101의 공유 이름을 입력해 연결하세요.</p>
-                {adding && (
-                  <form ref={form} className="source-form" onSubmit={addSource}>
-                    <label>
-                      보관함 이름
-                      <input name="name" required maxLength={80} placeholder="예: 가족 사진" />
-                    </label>
-                    <label>
-                      NAS 공유 이름
-                      <input name="share" required maxLength={128} placeholder="예: Photos" />
-                    </label>
-                    <label>
-                      공유 안의 폴더 <small>선택</small>
-                      <input name="folder" placeholder="예: 여행/2026" />
-                    </label>
-                    <label className="check-label">
-                      <input name="backup" type="checkbox" />
-                      휴대폰 백업 대상으로 사용
-                    </label>
-                    <p className="hint">
-                      백업 사진은 선택한 폴더의 Photo Backup 안에 저장돼요. 기존 사진은 변경하지
-                      않아요.
-                    </p>
-                    <div className="form-actions">
-                      <button type="button" className="secondary" onClick={() => setAdding(false)}>
-                        취소
-                      </button>
-                      <button className="primary" disabled={busy}>
-                        {busy ? <LoaderCircle className="spin" size={17} /> : <Plus size={17} />}
-                        연결하기
-                      </button>
-                    </div>
-                  </form>
-                )}
+                <p>NAS에 로그인하고 사진이 있는 폴더를 직접 선택하세요.</p>
+                {adding && <NasConnect onCancel={() => setAdding(false)} onConnected={async () => {setAdding(false);await refreshStatus();}} />}
                 {status?.sources.map((s) => (
                   <div className="source-row" key={s.id}>
                     <HardDrive size={22} />
                     <div>
                       <strong>{s.name}</strong>
                       <p>
-                        {s.share}
+                        {s.host && `${s.host} · ${s.protocol?.toUpperCase()} · `}{s.share || "NAS 최상위"}
                         {s.folder && ` / ${s.folder}`}
                         {s.backup ? " · 백업 가능" : ""}
                       </p>
@@ -1173,7 +1117,7 @@ export default function App() {
               <footer className="app-about">
                 <img src="/favicon.svg" alt="" />
                 <div>
-                  사진 <span>0.1.0</span>
+                  사진 <span>0.2.0</span>
                   <p>나만의 순간, 나만의 보관함.</p>
                 </div>
               </footer>
@@ -1237,7 +1181,7 @@ export default function App() {
                       <span />
                     </button>
                   ) : (
-                    <a className="secondary" href="/downloads/photo-0.1.0.apk">
+                    <a className="secondary" href="/downloads/photo-0.2.0.apk">
                       앱 다운로드
                       <Download size={16} />
                     </a>

@@ -25,3 +25,4 @@ android/capacitor-cordova-android-plugins/
 .claude/skills/
 .impeccable/review/
 runtime/
+__pycache__/
