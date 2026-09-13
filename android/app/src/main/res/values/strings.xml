@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">사진</string>
+    <string name="title_activity_main">사진</string>
+    <string name="package_name">kr.threechan.photo</string>
+    <string name="custom_url_scheme">kr.threechan.photo</string>
+</resources>

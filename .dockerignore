@@ -1,0 +1,9 @@
+.git
+.claude
+.local
+node_modules
+android
+state
+releases
+.env
+tests

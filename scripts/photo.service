@@ -1,0 +1,22 @@
+[Unit]
+Description=Photo private NAS API and thumbnail index
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=3chan
+Group=3chan
+WorkingDirectory=/srv/photo
+EnvironmentFile=/srv/photo/.env
+ExecStartPre=/usr/bin/python3 /srv/photo/scripts/restore-mounts.py
+ExecStart=/srv/photo/runtime/node /srv/photo/dist-api/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+MemoryMax=1G
+CPUQuota=150%
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

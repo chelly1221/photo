@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    image: photo-web:local
+    container_name: photo-web
+    restart: unless-stopped
+    init: true
+    networks:
+      web:
+        aliases: [photo-web]
+    volumes:
+      - ./releases:/downloads:ro
+    read_only: true
+    tmpfs: ['/tmp:size=8m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 192m
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+networks:
+  web:
+    external: true

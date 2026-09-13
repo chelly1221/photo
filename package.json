@@ -1,0 +1,59 @@
+{
+  "name": "photo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/build-sw.mjs",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-api/server.mjs && esbuild server/web.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-api/web.mjs",
+    "build:tailscale": "node scripts/build-tailscale.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "android:sync": "cap sync android && node scripts/trim-android-assets.mjs",
+    "android:release": "node scripts/android-release.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.1",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.1",
+    "@capacitor/filesystem": "8.1.3",
+    "@capacitor/share": "8.0.1",
+    "@fastify/static": "10.1.3",
+    "dexie": "4.4.5",
+    "dexie-react-hooks": "4.4.0",
+    "exifr": "7.1.3",
+    "fastify": "5.12.3",
+    "leaflet": "1.9.4",
+    "lucide-react": "1.31.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sharp": "0.35.4",
+    "supercluster": "8.0.1",
+    "zod": "4.6.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.1",
+    "@types/leaflet": "1.9.20",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/supercluster": "7.1.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "esbuild": "0.28.1",
+    "fake-indexeddb": "6.2.5",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

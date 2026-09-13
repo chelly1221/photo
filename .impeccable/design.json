@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-13T07:08:18.107Z",
+  "title": "Design System: 사진",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Pale neutral action"
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Page ground"
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Navigation ground"
+      },
+      "workspace": {
+        "role": "neutral",
+        "displayName": "Workspace ground"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel surface"
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field surface"
+      },
+      "selected": {
+        "role": "neutral",
+        "displayName": "Selected surface"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Supporting text"
+      },
+      "mark-violet": {
+        "role": "primary",
+        "displayName": "App mark violet"
+      },
+      "mark-pink": {
+        "role": "primary",
+        "displayName": "App mark pink"
+      },
+      "mark-coral": {
+        "role": "primary",
+        "displayName": "App mark coral"
+      },
+      "mark-apricot": {
+        "role": "primary",
+        "displayName": "App mark apricot"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Login heading",
+        "purpose": "Login screen title only; 30px at widths up to 640px."
+      },
+      "headline": {
+        "displayName": "Page heading",
+        "purpose": "Workspace heading; 21px at widths up to 640px."
+      },
+      "title": {
+        "displayName": "Section heading",
+        "purpose": "Settings sections and photo metadata title."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Global text size inherited by controls."
+      },
+      "paragraph": {
+        "displayName": "Paragraph rhythm",
+        "purpose": "Paragraph line height, separate from the global body rule."
+      },
+      "label": {
+        "displayName": "Compact label",
+        "purpose": "Form labels and section labels."
+      },
+      "count": {
+        "displayName": "Heading count",
+        "purpose": "Small noninteractive count beside gallery heading."
+      }
+    },
+    "shadows": [
+      {
+        "name": "map-marker",
+        "value": "0 4px 12px #0005",
+        "purpose": "Box shadow separating a count marker from the map."
+      },
+      {
+        "name": "tile-favorite",
+        "value": "drop-shadow(0 1px 3px #000)",
+        "purpose": "CSS filter preserving the favorite heart over a photograph."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Shared viewer, drawer, image and switch easing."
+      },
+      {
+        "name": "photo-filter",
+        "value": "filter 180ms var(--ease)",
+        "purpose": "Photo hover dimming."
+      },
+      {
+        "name": "caption",
+        "value": "opacity 180ms",
+        "purpose": "Date caption on hover or focus."
+      },
+      {
+        "name": "zoom",
+        "value": "transform 200ms var(--ease)",
+        "purpose": "Viewer zoom."
+      },
+      {
+        "name": "viewer-entry",
+        "value": "viewer-in 220ms var(--ease)",
+        "purpose": "Opacity 0.6 to 1 and clip-path inset(2% round 12px) to inset(0 round 0)."
+      },
+      {
+        "name": "drawer",
+        "value": "transform 230ms var(--ease)",
+        "purpose": "Mobile navigation slide."
+      },
+      {
+        "name": "switch",
+        "value": "transform 0.18s var(--ease)",
+        "purpose": "18px enabled thumb movement."
+      },
+      {
+        "name": "loading",
+        "value": "spin 1.1s linear infinite",
+        "purpose": "Loading icon rotation."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Under prefers-reduced-motion: reduce, animation and transition duration; animation iterations become one and scroll-behavior becomes auto."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-max",
+        "value": "640px"
+      },
+      {
+        "name": "compact-max",
+        "value": "900px"
+      },
+      {
+        "name": "wide-min",
+        "value": "1500px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Pale action button for connecting a folder or confirming an operation.",
+      "html": "<button class=\"ds-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>연결하기</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:8px;min-height:39px;padding:10px 15px;font-family:Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;font-size:13px;white-space:nowrap;cursor:pointer;background:#e6e6e6;color:#191919;font-weight:550}.ds-primary:hover:not(:disabled){background:#fff}.ds-primary:active:not(:disabled){background:#fff}.ds-primary:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}.ds-primary:disabled{opacity:.5;cursor:default}"
+    },
+    {
+      "name": "Secondary action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Compact dark button for supplementary actions.",
+      "html": "<button class=\"ds-secondary\">취소</button>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:8px;min-height:39px;padding:10px 15px;font-family:Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;font-size:13px;white-space:nowrap;cursor:pointer;background:#272727;color:#ddd}.ds-secondary:hover:not(:disabled){background-color:#ffffff0b}.ds-secondary:active:not(:disabled){background-color:#ffffff12}.ds-secondary:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}.ds-secondary:disabled{opacity:.5;cursor:default}"
+    },
+    {
+      "name": "Icon action",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "Compact icon button with an accessible Korean label.",
+      "html": "<button class=\"ds-icon\" aria-label=\"공유 폴더 추가\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg></button>",
+      "css": ".ds-icon{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:none;color:#b8b8b8;cursor:pointer}.ds-icon:hover:not(:disabled){background-color:#ffffff0b}.ds-icon:active:not(:disabled){background-color:#ffffff12}.ds-icon:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}.ds-icon:disabled{opacity:.5;cursor:default}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard settings field; the placeholder is the source form's existing example.",
+      "html": "<input class=\"ds-input\" aria-label=\"보관함 이름\" placeholder=\"예: 가족 사진\">",
+      "css": ".ds-input{font:14px Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;border:1px solid #ffffff20;border-radius:8px;background:#222;color:#ededed;min-height:40px;padding:9px 12px;max-width:100%}.ds-input::placeholder{color:var(--muted,#a0a0a0)}.ds-input:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}"
+    },
+    {
+      "name": "Active navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Selected Korean navigation row with its count.",
+      "html": "<nav aria-label=\"사진 탐색\"><button class=\"ds-nav\" aria-current=\"page\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><circle cx=\"9\" cy=\"9\" r=\"2\"/><path d=\"m21 15-4-4L7 21\"/></svg><span>모든 사진</span><small>0</small></button></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:11px;width:100%;padding:12px;border:0;border-radius:8px;text-align:left;min-height:43px;font:14px Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;background:#292929;color:#f2f2f2;cursor:pointer}.ds-nav small{margin-left:auto;color:#b0b0b0;font-size:11px}.ds-nav:hover{background:#292929}.ds-nav:active{background:#292929}.ds-nav:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}"
+    },
+    {
+      "name": "Heading count",
+      "kind": "chip",
+      "refersTo": "count",
+      "description": "Noninteractive compact gallery count badge; this is not a filter chip.",
+      "html": "<span class=\"ds-count\">0</span>",
+      "css": ".ds-count{display:inline-block;vertical-align:middle;margin-left:10px;padding:3px 6px;border-radius:5px;background:#292929;font-family:Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;font-size:11px;font-weight:450;color:#aaa;letter-spacing:0}"
+    },
+    {
+      "name": "Photo tile",
+      "kind": "card",
+      "refersTo": "photo-tile",
+      "description": "Square photo control, demonstrated with the actual missing-image placeholder rather than a fictional photograph.",
+      "html": "<button class=\"ds-photo\" aria-label=\"미리보기를 표시할 수 없어요.\"><span class=\"ds-placeholder\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m2 2 20 20M9 3h10a2 2 0 0 1 2 2v10M21 21H5a2 2 0 0 1-2-2V5M7 21l7-7M16 12l5 5\"/><circle cx=\"9\" cy=\"9\" r=\"2\"/></svg></span></button>",
+      "css": ".ds-photo{position:relative;width:190px;height:190px;overflow:hidden;background:#222;border:0;border-radius:3px;padding:0;text-align:left;cursor:pointer}.ds-photo img{width:100%;height:100%;object-fit:cover;transition:filter 180ms var(--ease,cubic-bezier(.16,1,.3,1))}.ds-photo:hover img{filter:brightness(.78)}.ds-photo:hover{background-color:#ffffff0b}.ds-photo:active{background-color:#ffffff12}.ds-photo:focus-visible{outline:2px solid #b9b9b9;outline-offset:-3px}.ds-placeholder{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;height:100%;background:#222;color:#888}@media(prefers-reduced-motion:reduce){.ds-photo img{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Source form panel",
+      "kind": "card",
+      "refersTo": "source-form",
+      "description": "Tonal two-column form panel with the source form's existing field labels.",
+      "html": "<form class=\"ds-source\"><label>보관함 이름<input placeholder=\"예: 가족 사진\"></label><label>NAS 공유 이름<input placeholder=\"예: Photos\"></label></form>",
+      "css": ".ds-source{background:#222;padding:22px;margin:24px 0;border-radius:12px;display:grid;grid-template-columns:1fr 1fr;gap:17px;font-family:Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;color:#ededed}.ds-source label{display:flex;flex-direction:column;gap:8px;font-size:12px}.ds-source input{font:14px Pretendard, \"Segoe UI\", \"Malgun Gothic\", sans-serif;border:1px solid #ffffff20;border-radius:8px;background:#222;color:inherit;min-height:40px;padding:9px 12px;max-width:100%;min-width:0}.ds-source input::placeholder{color:var(--muted,#a0a0a0)}.ds-source input:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}@media(max-width:640px){.ds-source{grid-template-columns:1fr;padding:17px}}"
+    },
+    {
+      "name": "Automatic backup switch",
+      "kind": "button",
+      "refersTo": "switch",
+      "description": "Android automatic backup state. The snippet shows the enabled state without a framework runtime.",
+      "html": "<button class=\"ds-switch on\" role=\"switch\" aria-label=\"사진 자동 백업\" aria-checked=\"true\"><span></span></button>",
+      "css": ".ds-switch{width:42px;height:24px;min-height:24px;padding:3px;border:0;border-radius:14px;background:#444;cursor:pointer}.ds-switch span{display:block;width:18px;height:18px;border-radius:50%;background:#aaa;transition:transform .18s var(--ease,cubic-bezier(.16,1,.3,1))}.ds-switch.on{background:#ddd}.ds-switch.on span{background:#333;transform:translateX(18px)}.ds-switch:hover:not(:disabled){background-color:#ffffff0b}.ds-switch:active:not(:disabled){background-color:#ffffff12}.ds-switch:focus-visible{outline:2px solid #b9b9b9;outline-offset:3px}.ds-switch:disabled{opacity:.5;cursor:default}@media(prefers-reduced-motion:reduce){.ds-switch span{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Gradient app mark",
+      "kind": "custom",
+      "description": "The existing favicon SVG, retained with its original geometry and gradient.",
+      "html": "<svg class=\"ds-mark\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\" role=\"img\" aria-label=\"사진\"><defs><linearGradient id=\"brand\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop stop-color=\"#a37bf2\"/><stop offset=\".43\" stop-color=\"#ef8bc9\"/><stop offset=\".74\" stop-color=\"#fa897c\"/><stop offset=\"1\" stop-color=\"#f8b16b\"/></linearGradient></defs><rect width=\"32\" height=\"32\" rx=\"9\" fill=\"#222222\"/><g fill=\"none\" stroke=\"url(#brand)\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"6.5\" y=\"7\" width=\"19\" height=\"18\" rx=\"3\"/><circle cx=\"12\" cy=\"12.5\" r=\"1.5\"/><path d=\"m7 21 5.5-5.5 4 4 3.5-4 5 5\"/></g></svg>",
+      "css": ".ds-mark{width:42px;height:42px;display:block}"
+    }
+  ],
+  "narrative": {
+    "overview": "사진 follows the existing note, carddav and caldav series: Pretendard, neutral dark surfaces, a compact navigation rail and the established gradient app mark. Korean labels and restrained controls keep the photographs visually dominant.\n\nThis is a record of the finished web interface, including the shared interface used by the Android wrapper. The confirmed series identity is the design authority; no separate creative north star has been introduced.",
+    "keyCharacteristics": [
+      "Neutral dark chrome with light primary actions.",
+      "Compact Pretendard typography and thin separators.",
+      "Dense square photographs, with information revealed on interaction.",
+      "The existing gradient picture mark identifies the app."
+    ],
+    "rules": [],
+    "dos": [
+      "Do preserve the note/carddav/caldav series identity and the existing gradient app mark.",
+      "Do use Pretendard and Korean labels across navigation, forms and states.",
+      "Do keep photo content dominant and use neutral surfaces for the surrounding controls.",
+      "Do preserve visible keyboard focus, reduced-motion behavior and independently scrolling content.",
+      "Do distinguish authentic empty, loading, error and offline states."
+    ],
+    "donts": [
+      "Don't introduce a replacement visual identity or spread the logo gradient across ordinary controls.",
+      "Don't turn the gallery into a collection of padded promotional cards.",
+      "Don't treat diagnostic fixture photographs as a real photo collection or shipping content.",
+      "Don't assume every mobile width has exactly two columns; the gallery calculates columns from its measured container."
+    ]
+  }
+}
