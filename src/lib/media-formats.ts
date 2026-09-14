@@ -1,0 +1,10 @@
+export const imageExtensions = ["jpg", "jpeg", "jpe", "jfif", "png", "webp", "heic", "heif", "hif", "avif", "avifs", "tif", "tiff", "gif", "bmp", "dib", "ico", "psd", "psb", "jxl", "jp2", "j2k", "jpf", "jpx", "jpc", "pnm", "ppm", "pgm", "pbm"] as const;
+export const rawExtensions = ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "raf", "rw2", "rwl", "orf", "pef", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "srw", "raw", "dcr", "kdc", "erf", "k25", "mdc"] as const;
+export const videoExtensions = ["mp4", "m4v", "mov", "mkv", "webm", "avi", "mts", "m2ts", "ts", "mpg", "mpeg", "mpe", "vob", "3gp", "3g2", "ogv", "asf", "wmv", "mxf", "flv"] as const;
+export const mediaExtensions: readonly string[] = [...imageExtensions, ...rawExtensions, ...videoExtensions];
+export const extensionOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+export const isVideo = (name: string) => (videoExtensions as readonly string[]).includes(extensionOf(name));
+export const mediaByteLimit = (name: string) => isVideo(name) ? 2 * 1024 ** 3 : 250 * 1024 ** 2;
+export const isRaw = (name: string) => (rawExtensions as readonly string[]).includes(extensionOf(name));
+export const supportsMedia = (name: string) => name.includes(".") && mediaExtensions.includes(extensionOf(name));
+export const mediaAccept = mediaExtensions.map(extension => `.${extension}`).join(",");

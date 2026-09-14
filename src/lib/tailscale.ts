@@ -83,7 +83,8 @@ function setup() {
       if (!event.persisted) port?.postMessage({ type: "close" });
     });
 }
-export async function ensureTailscale(): Promise<void> {
+export async function ensureTailscale(signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   const existing = Boolean(port);
   setup();
   if (snapshot.state === "Running") return;
@@ -98,6 +99,7 @@ export async function ensureTailscale(): Promise<void> {
     const finish = (error?: Error) => {
       clearTimeout(timer);
       unsubscribe();
+      signal?.removeEventListener("abort", abort);
       if (error) reject(error);
       else resolve();
     };
@@ -109,6 +111,9 @@ export async function ensureTailscale(): Promise<void> {
       () => finish(new Error("로그인 대기 시간이 지났어요. 연결 버튼을 다시 눌러 주세요.")),
       10 * 60_000,
     );
+    const abort = () => finish(new DOMException("연결을 취소했어요.", "AbortError"));
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 export function logoutTailscale() {

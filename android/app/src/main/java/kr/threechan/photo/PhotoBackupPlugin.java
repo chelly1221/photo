@@ -7,20 +7,30 @@ import com.getcapacitor.*;
 import com.getcapacitor.annotation.*;
 
 @CapacitorPlugin(name="PhotoBackup",permissions={
-    @Permission(alias="images",strings={"android.permission.READ_MEDIA_IMAGES","android.permission.ACCESS_MEDIA_LOCATION"}),
+    @Permission(alias="images",strings={"android.permission.READ_MEDIA_IMAGES","android.permission.READ_MEDIA_VIDEO","android.permission.ACCESS_MEDIA_LOCATION"}),
+    @Permission(alias="notifications",strings={"android.permission.POST_NOTIFICATIONS"}),
     @Permission(alias="legacy",strings={"android.permission.READ_EXTERNAL_STORAGE","android.permission.ACCESS_MEDIA_LOCATION"})
 })
 public class PhotoBackupPlugin extends Plugin {
-    static boolean canRead(android.content.Context c){return c.checkSelfPermission(Build.VERSION.SDK_INT>=33?"android.permission.READ_MEDIA_IMAGES":"android.permission.READ_EXTERNAL_STORAGE")==PackageManager.PERMISSION_GRANTED && (Build.VERSION.SDK_INT<29 || c.checkSelfPermission("android.permission.ACCESS_MEDIA_LOCATION")==PackageManager.PERMISSION_GRANTED);}
+    static boolean canRead(android.content.Context c){return c.checkSelfPermission(Build.VERSION.SDK_INT>=33?"android.permission.READ_MEDIA_IMAGES":"android.permission.READ_EXTERNAL_STORAGE")==PackageManager.PERMISSION_GRANTED && (Build.VERSION.SDK_INT<33 || c.checkSelfPermission("android.permission.READ_MEDIA_VIDEO")==PackageManager.PERMISSION_GRANTED) && (Build.VERSION.SDK_INT<29 || c.checkSelfPermission("android.permission.ACCESS_MEDIA_LOCATION")==PackageManager.PERMISSION_GRANTED);}
     @PluginMethod public void configure(PluginCall call){
         boolean enabled=call.getBoolean("enabled",false);
         if(enabled&&!canRead(getContext())){requestPermissionForAlias(Build.VERSION.SDK_INT>=33?"images":"legacy",call,"permissionResult");return;}
-        apply(call);
+        notifyOrApply(call);
     }
     @PermissionCallback private void permissionResult(PluginCall call){
-        if(!canRead(getContext())){call.reject("원본 자동 백업에는 모든 사진과 촬영 위치 정보 접근 권한이 필요해요. 선택한 사진만 허용한 경우 사진 선택해서 백업을 이용해 주세요.");return;}
+        if(!canRead(getContext())){call.reject("자동 백업에는 모든 사진·동영상과 촬영 위치 정보 접근 권한이 필요해요. 선택한 항목만 허용했다면 파일 선택 백업을 이용해 주세요.");return;}
+        notifyOrApply(call);
+    }
+    private void notifyOrApply(PluginCall call){
+        var prefs=BackgroundSyncWorker.prefs(getContext());
+        if(Build.VERSION.SDK_INT>=33&&call.getBoolean("enabled",false)&&getContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED&&!prefs.getBoolean("notificationAsked",false)){
+            prefs.edit().putBoolean("notificationAsked",true).apply();
+            requestPermissionForAlias("notifications",call,"notificationResult");return;
+        }
         apply(call);
     }
+    @PermissionCallback private void notificationResult(PluginCall call){apply(call);}
     private void apply(PluginCall call){
         boolean enabled=call.getBoolean("enabled",false);
         String source=call.getString("sourceId","");

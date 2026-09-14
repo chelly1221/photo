@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Root-owned NAS broker. JSON on stdin; no shell, credentials in argv, or secret output."""
-import base64, concurrent.futures, configparser, hashlib, http.client, ipaddress
+import base64, concurrent.futures, configparser, hashlib, http.client, ipaddress, datetime, math
 import json, os, pwd, re, shutil, socket, ssl, subprocess, sys, tempfile, time, uuid
 from pathlib import Path
 
@@ -174,6 +174,27 @@ def mount(input):
     (directory/'metadata.json').write_text(json.dumps(metadata))
     return {'host':metadata['host'],'protocol':metadata['protocol'],'path':selected}
 
+def delete_file(input):
+    source_id=identifier(input['sourceId'])
+    try: record=json.loads((RECORDS/(source_id+'.json')).read_text())
+    except Exception: raise NasError('등록된 NAS 폴더를 찾을 수 없어요.')
+    if record.get('sourceId')!=source_id or record.get('owner')!=input.get('owner'):
+        raise NasError('이 NAS 폴더의 파일을 삭제할 수 없어요.')
+    directory,meta=connection(record['connectionId'],input['owner'])
+    base=relative(record['path']);name=relative(input['relativePath'])
+    if not name or name.endswith('/') or '//' in name:raise NasError('삭제할 파일을 확인해 주세요.')
+    remote='nas:'+'/'.join(p for p in (base,name) if p)
+    size=input.get('size');mtime=input.get('mtime')
+    if not isinstance(size,int) or isinstance(size,bool) or size<0 or not isinstance(mtime,(int,float)) or not math.isfinite(mtime):raise NasError('파일 정보를 확인해 주세요.')
+    stat=json.loads(rclone(directory,['lsjson',remote,'--stat']))
+    try: modified=datetime.datetime.fromisoformat(stat['ModTime'].replace('Z','+00:00')).timestamp()*1000
+    except Exception:raise NasError('원본 변경 시간을 확인할 수 없어요.')
+    if stat.get('IsDir') is not False or stat.get('Size')!=size or abs(modified-mtime)>1:
+        raise NasError('원본이 변경됐어요. 목록을 확인한 뒤 다시 삭제해 주세요.')
+    # Never use recursive delete/purge or accept a caller-supplied remote/root.
+    rclone(directory,['deletefile',remote])
+    return {'ok':True}
+
 def cleanup():
     for directory in ROOT.iterdir():
         if not directory.is_dir() or directory.is_symlink():continue
@@ -190,6 +211,7 @@ def main(input):
         directory,meta=connection(input['connectionId'],input['owner'])
         return listing(directory,meta,input.get('path',''),input.get('offset',0))
     if action=='mount':return mount(input)
+    if action=='delete-file':return delete_file(input)
     if action=='forget':
         directory,meta=connection(input['connectionId'],input['owner'])
         if not meta.get('committed'):shutil.rmtree(directory)

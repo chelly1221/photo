@@ -2,6 +2,8 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import { api, json, ORIGIN } from "./api";
 import { tailscaleFetch } from "./tailscale";
 import { drainBackupQueue } from './backup-queue';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { mediaByteLimit, supportsMedia } from './media-formats';
 export const PhotoBackup = registerPlugin<{
   configure(options: {
     enabled: boolean;
@@ -21,6 +23,7 @@ export const native = Capacitor.isNativePlatform();
 declare global {
   interface Window {
     PhotoMedia?: {
+      configuration?(): string;
       listAsync(requestId: string): void;
       read(id: string, offset: number, length: number): string;
       complete(id: string): void;
@@ -63,11 +66,14 @@ export async function backupFiles(
 ) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    if (file.size > 250 * 1024 ** 2)
-      throw new Error(`${file.name}: 250MB 이하 사진만 백업할 수 있어요.`);
+    if (!supportsMedia(file.name)) throw new Error(`${file.name}: 지원하지 않는 사진·동영상 형식이에요.`);
+    if (file.size <= 0 || file.size > mediaByteLimit(file.name))
+      throw new Error(`${file.name}: 사진은 250MB, 동영상은 2GB까지 백업할 수 있어요.`);
     onProgress(`${i + 1}/${files.length} · ${file.name} 확인 중`);
-    const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-    const digest = Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(
+    const hash = sha256.create();
+    for (let offset = 0; offset < file.size; offset += 4 * 1024 ** 2)
+      hash.update(new Uint8Array(await file.slice(offset, offset + 4 * 1024 ** 2).arrayBuffer()));
+    const digest = Array.from(hash.digest(), (b) => b.toString(16).padStart(2, "0")).join(
       "",
     );
     await send(
@@ -79,7 +85,7 @@ export async function backupFiles(
       (n) => onProgress(`${i + 1}/${files.length} · ${Math.round(n * 100)}%`),
     );
   }
-  onProgress(`${files.length}장 백업 완료`);
+  onProgress(`${files.length}개 백업 완료`);
 }
 let running = false;
 type NativePhoto = { id: string; name: string; bytes: number; digest: string };
@@ -104,19 +110,21 @@ async function listNative(): Promise<NativePhoto[]> {
 }
 export async function backupPhone(onProgress: (text: string) => void = () => {}) {
   if (running || !window.PhotoMedia) return;
-  const sourceId = localStorage.getItem("photo-backup-source");
-  if (!sourceId) return;
+  const configuration = () => window.PhotoMedia?.configuration
+    ? JSON.parse(window.PhotoMedia.configuration()) as { enabled: boolean; sourceId: string }
+    : { enabled: localStorage.getItem("photo-auto-backup") === "yes", sourceId: localStorage.getItem("photo-backup-source") };
+  const settings = configuration();
+  const sourceId = settings.sourceId;
+  if (!settings.enabled || !sourceId) return;
   running = true;
   try {
     const result = await drainBackupQueue({
       list: listNative,
-      budgetMs: window.BackgroundSyncNative ? 120000 : undefined,
+      budgetMs: window.BackgroundSyncNative ? 480000 : undefined,
       process: async (file, completed) => {
-      onProgress(`${completed}장 완료 · ${file.name} 백업 중`);
-      if (
-        localStorage.getItem("photo-backup-source") !== sourceId ||
-        localStorage.getItem("photo-auto-backup") !== "yes"
-      )
+      onProgress(`${completed}개 완료 · ${file.name} 백업 중`);
+      const current = configuration();
+      if (current.sourceId !== sourceId || !current.enabled)
         throw new Error("백업 설정이 변경되어 전송을 멈췄어요.");
       await send(
         sourceId,
@@ -130,7 +138,7 @@ export async function backupPhone(onProgress: (text: string) => void = () => {})
       window.PhotoMedia!.complete(file.id);
       },
     });
-    onProgress(result.pending ? `${result.completed}장 백업했어요. 남은 사진은 다음 작업에서 이어서 백업해요.` : result.completed ? `${result.completed}장 백업 완료` : "새로운 사진이 없어요.");
+    onProgress(result.pending ? `${result.completed}개 백업했어요. 남은 파일은 다음 작업에서 이어서 백업해요.` : result.completed ? `${result.completed}개 백업 완료` : "새로운 사진·동영상이 없어요.");
     return result;
   } finally {
     running = false;

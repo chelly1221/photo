@@ -14,10 +14,17 @@ class PhotoCache extends Dexie {
 export const cache = new PhotoCache();
 let session = 0;
 export const cacheSession = () => session;
-export async function clearPrivateCache() {
+// Invalidate in-flight work at logout without deleting this device's library.
+export function endCacheSession() {
   session++;
-  await cache.media.clear();
-  await cache.records.clear();
+}
+export async function forgetDeletedPhoto(id: string) {
+  endCacheSession();
+  await cache.transaction("rw", cache.media, cache.records, async () => {
+    const keys = await cache.media.filter(item => item.id.startsWith(id + "-")).primaryKeys();
+    await cache.media.bulkDelete(keys);
+    await cache.records.clear(); // Cached lists/counts can refer to the deleted original.
+  });
 }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await tailscaleFetch(ORIGIN + "/api" + path, options);
@@ -64,7 +71,6 @@ export async function media(
     const blob = await response.blob();
     if (size === "thumb" && session === expected && !signal.aborted) {
       await cache.media.put({ id: key, blob, used: Date.now(), bytes: blob.size });
-      if (session !== expected) await cache.media.delete(key);
       if ((await cache.media.count()) > 800) {
         const old = await cache.media.orderBy("used").limit(100).primaryKeys();
         await cache.media.bulkDelete(old);
@@ -88,4 +94,26 @@ export async function downloadOriginal(photo: Photo) {
     offset += blob.size;
   }
   return new Blob(chunks, { type: "application/octet-stream" });
+}
+
+export async function videoPlayback(photo: Photo, signal: AbortSignal, progress: (percent: number) => void) {
+  const chunks: BlobPart[] = [];
+  let total = 0, offset = 0;
+  do {
+    signal.throwIfAborted();
+    const response = await tailscaleFetch(`${ORIGIN}/api/media/${photo.id}/video?offset=${offset}`, { signal });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error ?? "재생용 영상을 불러오지 못했어요.");
+    }
+    total = Number(response.headers.get("X-Media-Size"));
+    if (!Number.isSafeInteger(total) || total <= 0 || total > 128 * 1024 ** 2) throw new Error("재생용 영상 크기를 확인할 수 없어요.");
+    const chunk = await response.blob();
+    if (!chunk.size || offset + chunk.size > total) throw new Error("영상 전송이 중단됐어요.");
+    chunks.push(chunk);
+    offset += chunk.size;
+    progress(Math.round(offset / total * 100));
+  } while (offset < total);
+  signal.throwIfAborted();
+  return new Blob(chunks, { type: "video/mp4" });
 }

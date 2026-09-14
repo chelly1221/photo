@@ -18,6 +18,8 @@ User-confirmed: add NAS shares in the program; include phone automatic backup in
 
 NAS connection update: enter NAS IPv4 address/account/password, discover SMB/SFTP/WebDAV services, choose a protocol, then browse and select shared/subfolders through the GUI. Existing connected sources remain supported. The server stores connection credentials privately; the browser does not persist NAS passwords.
 
+Media update: photos and videos are in scope, including server-generated previews for extended image and camera RAW formats. Preserve originals. The server scans nested folders independently of browser lifetime; Android automatically backs up accessible MediaStore photos and videos subject to OS scheduling. The user selected OpenFreeMap Dark and a compact two-row gallery header without search or a visible all-photos title.
+
 ## Brand Commitments
 App name 사진. Match note, carddav and caldav series theme and properly provide favicon, PWA and Android launcher icons. Korean copy.
 

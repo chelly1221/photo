@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import type { Library } from "./library";
 import { Backups } from "./backup";
 import { NasService, nasAddress, nasPath } from "./nas";
+import { registerAlbumRoutes } from "./albums";
 export function createApp(lib: Library, allowedLogins: string[], nas?: NasService) {
   if (!allowedLogins.length) throw new Error("Explicit Tailscale account allowlist required");
   const allowed = new Set(allowedLogins.map((x) => x.toLowerCase()));
@@ -37,6 +38,7 @@ export function createApp(lib: Library, allowedLogins: string[], nas?: NasServic
   app.get("/api/identity", (req) => ({ login: req.headers["tailscale-user-login"] }));
   app.get("/api/status", () => lib.stats());
   app.get("/api/sources", () => lib.sources());
+  registerAlbumRoutes(app, lib);
   const nasService = () => {
     if (!nas)
       throw new Error("서버 NAS 탐색 도우미를 준비하고 있어요. 잠시 후 다시 시도해 주세요.");
@@ -119,8 +121,13 @@ export function createApp(lib: Library, allowedLogins: string[], nas?: NasServic
     void lib.startScan(true);
     return reply.code(202).send({ scanning: true });
   });
-  app.get("/api/photos", (req) => {
-    const q = z
+  app.delete<{ Params: { id: string } }>("/api/photos/:id", async (req) => {
+    const id = z.string().regex(/^[a-f0-9]{32}$/).parse(req.params.id);
+    const input = z.object({ version: z.string().regex(/^[a-f0-9]{16}$/), confirmOriginal: z.literal(true) }).strict().parse(req.body);
+    return lib.deletePhoto(id, input.version, (source, photo) =>
+      nasService().deleteFile(owner(req), source.id, photo.relativePath, photo.size, photo.mtime));
+  });
+  const photoQuery = z
       .object({
         q: z.string().max(200).optional(),
         source: z.string().uuid().optional(),
@@ -131,9 +138,16 @@ export function createApp(lib: Library, allowedLogins: string[], nas?: NasServic
         offset: z.coerce.number().int().min(0).default(0),
         limit: z.coerce.number().int().min(1).max(200).default(100),
         sort: z.enum(["newest", "oldest"]).optional(),
-      })
-      .parse(req.query);
+      });
+  app.get("/api/photos", (req) => {
+    const q = photoQuery.parse(req.query);
     return lib.list({ ...q, favorite: q.favorite === "true" });
+  });
+  app.get("/api/timeline", (req) => {
+    const q = photoQuery.extend({
+      timezoneOffset: z.coerce.number().int().min(-840).max(840).default(0),
+    }).parse(req.query);
+    return lib.timeline({ ...q, favorite: q.favorite === "true" });
   });
   app.get("/api/folders", () => lib.folders());
   app.get("/api/map", () => lib.map());
@@ -145,23 +159,24 @@ export function createApp(lib: Library, allowedLogins: string[], nas?: NasServic
     ),
   );
   app.get<{ Params: { id: string; size: string } }>("/api/media/:id/:size", async (req, reply) => {
-    const size = z.enum(["thumb", "preview", "original"]).parse(req.params.size);
-    if (size === "original") {
-      const { file, photo } = await lib.photoFile(req.params.id);
+    const size = z.enum(["thumb", "preview", "original", "video"]).parse(req.params.size);
+    if (size === "original" || size === "video") {
+      const asset = size === "video" ? await lib.video(req.params.id) : await lib.photoFile(req.params.id).then(({ file, photo }) => ({ file, size: photo.size }));
+      const { file } = asset;
       const offset = z.coerce
         .number()
         .int()
         .min(0)
         .default(0)
         .parse((req.query as any).offset);
-      if (offset >= photo.size)
+      if (offset >= asset.size)
         return reply.code(416).send({ error: "파일 범위를 확인해 주세요." });
-      const length = Math.min(2 * 1024 ** 2, photo.size - offset);
+      const length = Math.min(2 * 1024 ** 2, asset.size - offset);
       const handle = await fs.open(file, "r");
       try {
         const data = Buffer.alloc(length);
         const result = await handle.read(data, 0, length, offset);
-        return reply.type("application/octet-stream").send(data.subarray(0, result.bytesRead));
+        return reply.header("X-Media-Size", String(asset.size)).type(size === "video" ? "video/mp4" : "application/octet-stream").send(data.subarray(0, result.bytesRead));
       } finally {
         await handle.close();
       }
@@ -178,7 +193,7 @@ export function createApp(lib: Library, allowedLogins: string[], nas?: NasServic
             .number()
             .int()
             .positive()
-            .max(250 * 1024 ** 2),
+            .max(2 * 1024 ** 3),
           digest: z.string().regex(/^[a-f0-9]{64}$/),
         })
         .strict()

@@ -5,8 +5,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import sharp from "sharp";
 import exifr from "exifr";
+import sharp from "sharp";
+import { supportsMedia, isVideo } from "../src/lib/media-formats";
+import { createDerivatives } from "./media-processing";
 
 const exec = promisify(execFile);
 export type Source = {
@@ -40,18 +42,6 @@ export type Photo = {
   version: string;
   error: string | null;
 };
-const formats = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".heic",
-  ".heif",
-  ".avif",
-  ".tif",
-  ".tiff",
-  ".gif",
-]);
 export function safeRelative(value: string) {
   if (
     value.includes("\0") ||
@@ -69,6 +59,7 @@ export class Library {
   progress = { processed: 0, found: 0, errors: 0, startedAt: 0, finishedAt: 0 };
   stopped = false;
   private work: Promise<void> | null = null;
+  private deleting = false;
   constructor(
     public config: {
       stateDir: string;
@@ -208,15 +199,49 @@ export class Library {
     if (!item) throw Object.assign(new Error("사진을 찾을 수 없어요."), { statusCode: 404 });
     return item;
   }
-  list(query: {
+  async deletePhoto(id: string, version: string, removeRemote?: (source: Source, photo: Photo) => Promise<unknown>) {
+    if (this.deleting) throw Object.assign(new Error("다른 사진을 삭제하고 있어요. 잠시 후 다시 시도해 주세요."), { statusCode: 409 });
+    this.deleting = true;
+    try {
+      await this.work;
+      const photo = this.get(id);
+      const source = this.source(photo.sourceId);
+      if (!source.enabled) throw Object.assign(new Error("연결이 중지된 폴더예요."), { statusCode: 409 });
+      if (photo.version !== version) throw Object.assign(new Error("사진이 변경됐어요. 다시 확인한 뒤 삭제해 주세요."), { statusCode: 409 });
+      const relative = safeRelative(photo.relativePath);
+      if (!relative) throw new Error("삭제할 파일을 확인해 주세요.");
+      const root = await this.root(source);
+      let file = root;
+      for (const part of relative.split("/")) {
+        file = path.join(file, part);
+        if ((await fs.lstat(file)).isSymbolicLink()) throw Object.assign(new Error("연결된 파일은 삭제할 수 없어요."), { statusCode: 403 });
+      }
+      await this.assertInside(root, file);
+      const stat = await fs.stat(file);
+      if (!stat.isFile() || stat.size !== photo.size || stat.mtimeMs !== photo.mtime)
+        throw Object.assign(new Error("원본이 변경됐어요. 다시 확인한 뒤 삭제해 주세요."), { statusCode: 409 });
+      if (this.config.testRoots) await fs.unlink(file);
+      else if (source.connectionId && removeRemote) await removeRemote(source, photo);
+      else throw Object.assign(new Error("이 연결 방식은 원본 삭제를 지원하지 않아요. 설정에서 NAS 폴더를 다시 연결해 주세요."), { statusCode: 403 });
+      this.db.exec("BEGIN");
+      try {
+        if (this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='album_photos'").get())
+          this.db.prepare("DELETE FROM album_photos WHERE photoId=?").run(photo.id);
+        this.db.prepare("DELETE FROM photos WHERE id=?").run(photo.id);
+        this.db.exec("COMMIT");
+      } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+      for (const kind of ["thumb", "preview", "video"])
+        await fs.unlink(path.join(this.config.stateDir, "thumbs", `${id}-${version}-${kind}.${kind === "video" ? "mp4" : "webp"}`)).catch(() => {});
+      return { deleted: photo.id };
+    } finally { this.deleting = false; }
+  }
+  private photoFilter(query: {
     q?: string;
     source?: string;
     folder?: string;
     favorite?: boolean;
     from?: number;
     to?: number;
-    offset: number;
-    limit: number;
     sort?: string;
   }) {
     const clauses = ["s.enabled=1"];
@@ -237,16 +262,23 @@ export class Library {
       params.push(query.folder);
     }
     if (query.favorite) clauses.push("p.favorite=1");
-    if (query.from) {
+    if (query.from !== undefined) {
       clauses.push("p.takenAt>=?");
       params.push(query.from);
     }
-    if (query.to) {
+    if (query.to !== undefined) {
       clauses.push("p.takenAt<=?");
       params.push(query.to);
     }
     const where = clauses.join(" AND ");
     const join = "FROM photos p JOIN sources s ON s.id=p.sourceId";
+    return { where, join, params };
+  }
+  list(query: {
+    q?: string; source?: string; folder?: string; favorite?: boolean;
+    from?: number; to?: number; sort?: string; offset: number; limit: number;
+  }) {
+    const { where, join, params } = this.photoFilter(query);
     const total = Number(
       this.db.prepare(`SELECT count(*) count ${join} WHERE ${where}`).get(...params)?.count ?? 0,
     );
@@ -260,6 +292,23 @@ export class Library {
       total,
       next: query.offset + items.length < total ? query.offset + items.length : null,
     };
+  }
+  timeline(query: {
+    q?: string; source?: string; folder?: string; favorite?: boolean;
+    from?: number; to?: number; sort?: string; timezoneOffset: number;
+  }) {
+    const { where, join, params } = this.photoFilter(query);
+    const rows = this.db.prepare(
+      `SELECT strftime('%Y-%m', p.takenAt / 1000.0, 'unixepoch', ?) month,
+       count(*) count ${join} WHERE ${where} GROUP BY month
+       ORDER BY month ${query.sort === "oldest" ? "ASC" : "DESC"}`,
+    ).all(`${query.timezoneOffset} minutes`, ...params);
+    let offset = 0;
+    return rows.map((row) => {
+      const bucket = { month: String(row.month), count: Number(row.count), offset };
+      offset += bucket.count;
+      return bucket;
+    });
   }
   folders() {
     return this.db
@@ -294,19 +343,23 @@ export class Library {
   }
   async thumb(id: string, size: "thumb" | "preview") {
     const photo = this.get(id);
-    if (photo.error)
-      throw Object.assign(new Error("이 사진 형식의 미리보기를 만들지 못했어요."), {
-        statusCode: 422,
-      });
     const file = path.join(
       this.config.stateDir,
       "thumbs",
       `${photo.id}-${photo.version}-${size}.webp`,
     );
-    await fs.access(file);
+    await fs.access(file).catch(() => { throw Object.assign(new Error(photo.error || "미리보기를 준비하고 있어요."), { statusCode: 422 }); });
     return file;
   }
+  async video(id: string) {
+    const photo = this.get(id);
+    if (!isVideo(photo.name)) throw Object.assign(new Error("동영상이 아니에요."), { statusCode: 404 });
+    const file = path.join(this.config.stateDir, "thumbs", `${photo.id}-${photo.version}-video.mp4`);
+    const stat = await fs.stat(file).catch(() => { throw Object.assign(new Error(photo.error || "재생용 영상을 준비하고 있어요. 잠시 후 다시 열어 주세요."), { statusCode: 422 }); });
+    return { file, size: stat.size };
+  }
   startScan(retryErrors = false) {
+    if (this.deleting) return this.work ?? Promise.resolve();
     if (this.work) return this.work;
     this.work = this.scan(retryErrors).finally(() => {
       this.work = null;
@@ -344,7 +397,7 @@ export class Library {
                 await walk(file);
                 continue;
               }
-              if (!entry.isFile() || !formats.has(path.extname(entry.name).toLowerCase())) continue;
+              if (!entry.isFile() || !supportsMedia(entry.name)) continue;
               this.progress.found++;
               try {
                 await this.assertInside(root, file);
@@ -363,13 +416,13 @@ export class Library {
                   old?.version === version &&
                   !old.error &&
                   (await Promise.all(
-                    ["thumb", "preview"].map((kind) =>
+                    ["thumb", "preview", ...(isVideo(file) ? ["video"] : [])].map((kind) =>
                       fs
                         .access(
                           path.join(
                             this.config.stateDir,
                             "thumbs",
-                            `${id}-${version}-${kind}.webp`,
+                            `${id}-${version}-${kind}.${kind === "video" ? "mp4" : "webp"}`,
                           ),
                         )
                         .then(
@@ -388,35 +441,15 @@ export class Library {
                   height = 0,
                   error: null | string = null;
                 try {
-                  if (stat.size > 250 * 1024 * 1024) throw new Error("too large");
+                  if (!isVideo(file) && stat.size > 250 * 1024 * 1024) throw new Error("too large");
                   meta =
                     (await exifr
                       .parse(file, { gps: true, tiff: true, exif: true })
                       .catch(() => null)) ?? {};
-                  const image = sharp(file, {
-                    limitInputPixels: 150_000_000,
-                    animated: false,
-                  }).rotate();
-                  const info = await image.metadata();
-                  width = info.autoOrient?.width ?? info.width ?? 0;
-                  height = info.autoOrient?.height ?? info.height ?? 0;
-                  for (const [kind, pixels] of [
-                    ["thumb", 480],
-                    ["preview", 2048],
-                  ] as const) {
-                    const target = path.join(
-                      this.config.stateDir,
-                      "thumbs",
-                      `${id}-${version}-${kind}.webp`,
-                    );
-                    const temp = target + ".tmp";
-                    await image
-                      .clone()
-                      .resize(pixels, pixels, { fit: "inside", withoutEnlargement: true })
-                      .webp({ quality: kind === "thumb" ? 75 : 85 })
-                      .toFile(temp);
-                    await fs.rename(temp, target);
-                  }
+                  const info = await createDerivatives(file, path.join(this.config.stateDir, "thumbs", `${id}-${version}`));
+                  width = info.width; height = info.height;
+                  if (info.takenAt !== undefined && Number.isFinite(info.takenAt)) meta.DateTimeOriginal = new Date(info.takenAt);
+                  if (info.error) { error = info.error; this.progress.errors++; }
                 } catch {
                   error = "미리보기를 만들지 못했어요.";
                   this.progress.errors++;
@@ -458,13 +491,13 @@ export class Library {
                     scanId,
                   );
                 if (old?.version && old.version !== version) {
-                  for (const kind of ["thumb", "preview"])
+                  for (const kind of ["thumb", "preview", "video"])
                     await fs
                       .unlink(
                         path.join(
                           this.config.stateDir,
                           "thumbs",
-                          `${id}-${old.version}-${kind}.webp`,
+                          `${id}-${old.version}-${kind}.${kind === "video" ? "mp4" : "webp"}`,
                         ),
                       )
                       .catch(() => {});
@@ -489,10 +522,10 @@ export class Library {
               .prepare("DELETE FROM photos WHERE sourceId=? AND (seen IS NULL OR seen!=?)")
               .run(source.id, scanId);
             for (const p of removed)
-              for (const kind of ["thumb", "preview"])
+              for (const kind of ["thumb", "preview", "video"])
                 await fs
                   .unlink(
-                    path.join(this.config.stateDir, "thumbs", `${p.id}-${p.version}-${kind}.webp`),
+                    path.join(this.config.stateDir, "thumbs", `${p.id}-${p.version}-${kind}.${kind === "video" ? "mp4" : "webp"}`),
                   )
                   .catch(() => {});
           }

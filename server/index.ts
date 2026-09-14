@@ -18,8 +18,18 @@ const app = createApp(
   new NasService(runNasHelper(process.env.NAS_HELPER??'/usr/local/sbin/photo-nas')),
 );
 await app.listen({ host: process.env.HOST ?? "127.0.0.1", port: Number(process.env.PORT ?? 8793) });
-void lib.startScan();
-const timer = setInterval(() => void lib.startScan(), 5 * 60_000);
+let lastErrorRetry = 0;
+const scan = () => {
+  if (lib.scanning) return;
+  const retryErrors = Date.now() - lastErrorRetry >= 60 * 60_000;
+  if (retryErrors) lastErrorRetry = Date.now();
+  void lib.startScan(retryErrors).catch(() => {
+    // Keep the server alive and retry on the next scheduled pass.
+    console.error("Photo scan interrupted; it will retry automatically.");
+  });
+};
+scan();
+const timer = setInterval(scan, 5 * 60_000);
 timer.unref();
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {

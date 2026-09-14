@@ -32,4 +32,21 @@ class BrokerTests(unittest.TestCase):
             second=broker.listing(Path('/unused'),{'protocol':'smb'},'',200)
             self.assertEqual(len(second['folders']),5);self.assertIsNone(second['next'])
 
+    def test_delete_uses_registered_source_and_exact_file_only(self):
+        source='11111111-1111-4111-8111-111111111111'
+        with tempfile.TemporaryDirectory() as temp,patch.object(broker,'RECORDS',Path(temp)),patch.object(broker,'connection',return_value=(Path('/unused'),{})):
+            (Path(temp)/(source+'.json')).write_text(json.dumps({'sourceId':source,'owner':'alice','connectionId':source,'path':'Photos/Family'}))
+            request={'sourceId':source,'owner':'alice','relativePath':'2026/photo.jpg','size':123,'mtime':1000}
+            with patch.object(broker,'rclone',side_effect=[json.dumps({'IsDir':False,'Size':123,'ModTime':'1970-01-01T00:00:01Z'}).encode(),b'']) as run:
+                self.assertEqual(broker.delete_file(request),{'ok':True})
+                self.assertEqual(run.call_args_list[1].args[1],['deletefile','nas:Photos/Family/2026/photo.jpg'])
+            for invalid in ({'owner':'bob'},{'relativePath':'../other.jpg'},{'relativePath':''}):
+                with patch.object(broker,'rclone') as run:
+                    with self.assertRaises(broker.NasError):broker.delete_file({**request,**invalid})
+                    run.assert_not_called()
+            for stat in ({'IsDir':True,'Size':123,'ModTime':'1970-01-01T00:00:01Z'},{'IsDir':False,'Size':999,'ModTime':'1970-01-01T00:00:01Z'},{'IsDir':False,'Size':123,'ModTime':'1970-01-01T00:00:02Z'}):
+                with patch.object(broker,'rclone',return_value=json.dumps(stat).encode()) as run:
+                    with self.assertRaises(broker.NasError):broker.delete_file(request)
+                    self.assertEqual(run.call_count,1)
+
 if __name__=='__main__':unittest.main()

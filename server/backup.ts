@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import type { Library } from "./library";
+import { mediaByteLimit, supportsMedia } from "../src/lib/media-formats";
 type Upload = {
   id: string;
   sourceId: string;
@@ -16,6 +17,8 @@ export class Backups {
   private locks = new Set<string>();
   constructor(private lib: Library) {}
   async begin(input: { sourceId: string; name: string; bytes: number; digest: string }) {
+    if (!supportsMedia(input.name)) throw new Error("지원하지 않는 사진·동영상 형식이에요.");
+    if (input.bytes <= 0 || input.bytes > mediaByteLimit(input.name)) throw new Error("사진은 250MB, 동영상은 2GB까지 백업할 수 있어요.");
     const source = this.lib.source(input.sourceId);
     if (!source.backup || !source.enabled)
       throw new Error("백업을 허용한 공유 폴더를 선택해 주세요.");
@@ -44,7 +47,7 @@ export class Backups {
     const pending = Number(
       this.lib.db.prepare("SELECT coalesce(sum(bytes),0) n FROM uploads").get()?.n ?? 0,
     );
-    if (pending + input.bytes > 2 * 1024 ** 3)
+    if (pending + input.bytes > 8 * 1024 ** 3)
       throw Object.assign(
         new Error("백업 대기 공간이 가득 찼어요. 기존 백업을 먼저 완료해 주세요."),
         { statusCode: 507 },
@@ -117,21 +120,7 @@ export class Backups {
       await fs.mkdir(directory, { recursive: true });
       await this.lib.assertInside(root, directory);
       const extension = path.extname(up.name).toLowerCase();
-      if (
-        ![
-          ".jpg",
-          ".jpeg",
-          ".png",
-          ".webp",
-          ".heic",
-          ".heif",
-          ".avif",
-          ".gif",
-          ".tif",
-          ".tiff",
-        ].includes(extension)
-      )
-        throw new Error("지원하지 않는 사진 형식이에요.");
+      if (!supportsMedia(up.name)) throw new Error("지원하지 않는 사진·동영상 형식이에요.");
       const filename =
         path.basename(up.name, extension).slice(0, 80) + "--" + up.digest + extension;
       const target = path.join(directory, filename);

@@ -31,4 +31,18 @@ public class BackupRuntimeTest {
         assertFalse(AuthBrowserPlugin.isAllowedUrl("https://login.tailscale.com@example.com/a/login"));
         assertTrue(AuthBrowserPlugin.isAllowedUrl("https://login.tailscale.com/a/test"));
     }
+    @Test public void continuationKeepsNetworkRulesWithoutAnArtificialWait(){
+        BackgroundSyncWorker.prefs(context).edit().putBoolean("wifiOnly",true).commit();
+        var request=BackgroundSyncWorker.continuation(context).getWorkSpec();
+        assertEquals(NetworkType.UNMETERED,request.constraints.getRequiredNetworkType());
+        assertEquals(0L,request.initialDelay);
+        assertFalse(request.constraints.requiresBatteryNotLow());
+    }
+    @Test public void supportedMediaIncludesRawAndVideoAndUsesNativeSettings() throws Exception {
+        assertTrue(MediaFormats.supports("IMG.CR3"));assertTrue(MediaFormats.supports("clip.MOV"));
+        assertFalse(MediaFormats.supports("script.exe"));
+        BackgroundSyncWorker.prefs(context).edit().putBoolean("enabled",true).putString("sourceId","native-source").commit();
+        var settings=new org.json.JSONObject(new PhotoMedia(context,null).configuration());
+        assertTrue(settings.getBoolean("enabled"));assertEquals("native-source",settings.getString("sourceId"));
+    }
 }

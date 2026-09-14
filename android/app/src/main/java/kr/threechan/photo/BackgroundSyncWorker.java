@@ -1,6 +1,11 @@
 package kr.threechan.photo;
 
 import android.content.*;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.pm.ServiceInfo;
+import androidx.core.app.NotificationCompat;
 import android.os.*;
 import android.webkit.*;
 import androidx.annotation.NonNull;
@@ -11,7 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Notification-free, bounded work. Android owns scheduling across process death and reboot. */
+/** Persistent, resumable batches. Android owns scheduling across process death and reboot. */
 public class BackgroundSyncWorker extends Worker {
     static final String PREFS="background-sync-v1", PERIODIC="automatic-sync-v1", SOON="automatic-sync-soon-v1";
     private static volatile boolean foreground;
@@ -21,6 +26,7 @@ public class BackgroundSyncWorker extends Worker {
     private final AtomicBoolean completed=new AtomicBoolean();
     private volatile String outcome="retry";
     private WebView view;
+    private PhotoMedia media;
     public BackgroundSyncWorker(@NonNull Context c,@NonNull WorkerParameters p){super(c,p);}
     static SharedPreferences prefs(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
     static boolean enabled(Context c){return prefs(c).getBoolean("enabled",false);}
@@ -36,9 +42,9 @@ public class BackgroundSyncWorker extends Worker {
         if(!enabled){
             work.cancelUniqueWork(PERIODIC);work.cancelUniqueWork(SOON);
             if(active!=null)active.main.post(()->{if(active!=null)active.finish("skipped");});
-        }else ensureScheduled(c);
+        }else soon(c);
     }
-    static Constraints constraints(Context c){return new Constraints.Builder().setRequiredNetworkType(prefs(c).getBoolean("wifiOnly",true)?NetworkType.UNMETERED:NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build();}
+    static Constraints constraints(Context c){return new Constraints.Builder().setRequiredNetworkType(prefs(c).getBoolean("wifiOnly",true)?NetworkType.UNMETERED:NetworkType.CONNECTED).build();}
     static void ensureScheduled(Context c){
         if(!enabled(c))return;
         WorkManager.getInstance(c).enqueueUniquePeriodicWork(PERIODIC,ExistingPeriodicWorkPolicy.UPDATE,
@@ -49,11 +55,36 @@ public class BackgroundSyncWorker extends Worker {
         if(!enabled(c))return;
         ensureScheduled(c);
         WorkManager.getInstance(c).enqueueUniqueWork(SOON,ExistingWorkPolicy.KEEP,
-            new OneTimeWorkRequest.Builder(BackgroundSyncWorker.class).setInitialDelay(20,TimeUnit.SECONDS)
+            new OneTimeWorkRequest.Builder(BackgroundSyncWorker.class)
                 .setConstraints(constraints(c)).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,1,TimeUnit.MINUTES).build());
+    }
+    static OneTimeWorkRequest continuation(Context c){
+        return new OneTimeWorkRequest.Builder(BackgroundSyncWorker.class)
+            .setConstraints(constraints(c)).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,1,TimeUnit.MINUTES).build();
+    }
+    private ForegroundInfo notification(){
+        Context context=getApplicationContext();
+        String channel="photo-backup";
+        if(Build.VERSION.SDK_INT>=26){
+            NotificationChannel settings=new NotificationChannel(channel,"사진 자동 백업",NotificationManager.IMPORTANCE_LOW);
+            context.getSystemService(NotificationManager.class).createNotificationChannel(settings);
+        }
+        PendingIntent open=PendingIntent.getActivity(context,0,new Intent(context,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        var notice=new NotificationCompat.Builder(context,channel)
+            .setSmallIcon(R.drawable.photo_monochrome).setContentTitle("사진을 NAS에 백업하고 있어요")
+            .setContentText("앱을 닫아도 전송을 이어가요. 중단되면 자동으로 재개해요.")
+            .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).setProgress(0,0,true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel,"이번 작업 중지",WorkManager.getInstance(context).createCancelPendingIntent(getId()))
+            .build();
+        return Build.VERSION.SDK_INT>=29?new ForegroundInfo(3001,notice,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC):new ForegroundInfo(3001,notice);
     }
     @NonNull @Override public Result doWork(){
         if(!enabled(getApplicationContext())||foreground)return Result.success();
+        try {
+            setForegroundAsync(notification()).get(10,TimeUnit.SECONDS);
+        }catch(Exception restricted){
+            // OS foreground quotas may be exhausted; the bounded worker can still run.
+        }
         main.post(()->{
             if(isStopped()||foreground||!enabled(getApplicationContext())){finish("skipped");return;}
             if(active!=null){finish("busy");return;}
@@ -62,9 +93,16 @@ public class BackgroundSyncWorker extends Worker {
             start();
         });
         try{
-            if(!finished.await(180,TimeUnit.SECONDS))main.post(()->finish("retry"));
+            if(!finished.await(540,TimeUnit.SECONDS)){
+                main.post(()->finish("retry"));
+                finished.await(5,TimeUnit.SECONDS);
+            }
         }catch(InterruptedException e){Thread.currentThread().interrupt();main.post(()->finish("retry"));}
-        return outcome.equals("retry")||outcome.equals("busy")||outcome.equals("more")?Result.retry():Result.success();
+        if(outcome.equals("more")&&enabled(getApplicationContext())&&!isStopped()){
+            // Pending photos are successful partial work, not a growing failure backoff.
+            WorkManager.getInstance(getApplicationContext()).enqueueUniqueWork(SOON,ExistingWorkPolicy.APPEND_OR_REPLACE,continuation(getApplicationContext()));
+        }
+        return outcome.equals("retry")||outcome.equals("busy")?Result.retry():Result.success();
     }
     @Override public void onStopped(){main.post(()->finish("retry"));}
     private void finish(String result){
@@ -75,6 +113,7 @@ public class BackgroundSyncWorker extends Worker {
             if(result.equals("ok")||result.equals("more"))edit.putLong("lastSuccess",System.currentTimeMillis());
             edit.apply();active=null;
         }
+        if(media!=null){media.close();media=null;}
         if(view!=null){view.stopLoading();view.removeJavascriptInterface("BackgroundSyncNative"); view.destroy();view=null;}
         finished.countDown();
     }
@@ -101,7 +140,8 @@ public class BackgroundSyncWorker extends Worker {
             });
             NativeBridge bridge=new NativeBridge();
             view.addJavascriptInterface(bridge,"BackgroundSyncNative");
-            view.addJavascriptInterface(new PhotoMedia(getApplicationContext(),view),"PhotoMedia");
+            media=new PhotoMedia(getApplicationContext(),view);
+            view.addJavascriptInterface(media,"PhotoMedia");
             view.loadUrl("https://localhost/index.html");
         }catch(Exception e){finish("retry");}
     }

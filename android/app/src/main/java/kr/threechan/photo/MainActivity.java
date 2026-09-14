@@ -72,6 +72,9 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         // A manual close also returns here; a later approval must not reopen the app.
         if (authHostStopped) {
+            if (authTabOpen && !authCloseRequested && getBridge() != null) {
+                getBridge().triggerWindowJSEvent("photoAuthClosed");
+            }
             authTabOpen = false;
             authCloseRequested = false;
             authHostStopped = false;

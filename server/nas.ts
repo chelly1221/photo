@@ -169,4 +169,9 @@ export class NasService {
   async forget(owner: string, connectionId: string) {
     return this.exclusive(owner, () => this.run({ action: "forget", owner, connectionId }));
   }
+  async deleteFile(owner: string, sourceId: string, relativePath: string, size: number, mtime: number) {
+    z.string().uuid().parse(sourceId);
+    nasPath.min(1).parse(relativePath);
+    return this.exclusive(owner, () => this.run({ action: "delete-file", owner, sourceId, relativePath, size, mtime }));
+  }
 }
