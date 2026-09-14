@@ -67,3 +67,12 @@ curl --fail http://127.0.0.1:8793/api/health
 ## 확인 항목
 
 공개 홈·favicon·WASM·APK는 200, 공개 `/api/photos`는 404, 로컬 사설 API의 인증 없는 `/api/photos`는 403이어야 합니다. Tailscale Serve를 통한 허용 계정의 `/api/identity`는 200이어야 합니다. 서비스 로그는 `journalctl -u photo`로 확인합니다.
+
+
+## 2026-09-15 릴리스 0.5.3
+
+최신 UI 및 자동 백그라운드 복구 변경을 웹과 기존 키로 서명한 Android APK에 반영합니다. package 버전·versionCode·다운로드 링크를 함께 갱신했습니다. 공개 API 차단과 기기·NAS 데이터 보존 구성을 유지합니다.
+
+검증: 네 앱의 웹/서버 빌드와 280개 회귀 테스트 통과. APK 서명이 이전 릴리스와 일치하며 APK 내 웹 파일이 새 production 빌드와 일치합니다. 배포 아티팩트와 이전 이미지는 서버의 .deploy/release-0.5.3-20260915에 보관합니다.
+
+배포 완료: 공개 웹 아티팩트와 다운로드 APK의 SHA-256 일치를 확인했고, 공개 API는 404로 차단됩니다. 기존 서명과 증가한 Android 버전 번호를 검증했습니다.

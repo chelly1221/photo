@@ -33,7 +33,8 @@ function publish(value: TailState) {
   snapshot = value;
   for (const listener of listeners) listener();
 }
-function setup() {
+let pagehideRegistered = false;
+function setup(interactive = true) {
   if (port) return;
   const url = "/tailscale/0.1.0/worker.js?app=0.1.0";
   if (typeof SharedWorker !== "undefined") {
@@ -77,44 +78,57 @@ function setup() {
         );
     }
   };
-  port.postMessage({ type: "init", interactive: !window.BackgroundSyncNative });
-  if (typeof window !== "undefined")
+  port.postMessage({ type: "init", interactive: interactive && !window.BackgroundSyncNative });
+  if (typeof window !== "undefined" && !pagehideRegistered) {
+    pagehideRegistered = true;
     window.addEventListener("pagehide", (event) => {
       if (!event.persisted) port?.postMessage({ type: "close" });
     });
+  }
 }
-export async function ensureTailscale(signal?: AbortSignal): Promise<void> {
+export async function ensureTailscale(signal?: AbortSignal, interactive = true): Promise<void> {
   signal?.throwIfAborted();
   const existing = Boolean(port);
-  setup();
+  setup(interactive);
   if (snapshot.state === "Running") return;
   if (snapshot.state === "Error") throw new Error(snapshot.message);
-  if (
-    existing &&
-    !window.BackgroundSyncNative &&
-    (snapshot.state === "NeedsLogin" || snapshot.state === "Stopped")
-  )
-    port?.postMessage({ type: "login" });
+  if (!interactive && ["NeedsLogin", "NeedsMachineAuth"].includes(snapshot.state)) throw new Error("Tailscale 재인증이 필요해요.");
+  if (interactive && existing && (typeof window === "undefined" || !window.BackgroundSyncNative) && ["NeedsLogin", "Stopped"].includes(snapshot.state)) port?.postMessage({ type: "login" });
   return new Promise((resolve, reject) => {
     const finish = (error?: Error) => {
       clearTimeout(timer);
       unsubscribe();
       signal?.removeEventListener("abort", abort);
-      if (error) reject(error);
-      else resolve();
+      if (error) reject(error); else resolve();
     };
     const unsubscribe = subscribeTailscale(() => {
       if (snapshot.state === "Running") finish();
       else if (snapshot.state === "Error") finish(new Error(snapshot.message));
+      else if (!interactive && ["NeedsLogin", "NeedsMachineAuth"].includes(snapshot.state)) finish(new Error("Tailscale 재인증이 필요해요."));
     });
-    const timer = setTimeout(
-      () => finish(new Error("로그인 대기 시간이 지났어요. 연결 버튼을 다시 눌러 주세요.")),
-      10 * 60_000,
-    );
+    const timer = setTimeout(() => finish(new Error("연결 대기 시간이 지났어요. 다시 시도해 주세요.")), 10 * 60_000);
     const abort = () => finish(new DOMException("연결을 취소했어요.", "AbortError"));
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
   });
+}
+
+let recovering: Promise<void> | undefined;
+export function recoverTailscale(): Promise<void> {
+  if (snapshot.state === "Running") return Promise.resolve();
+  if (["NeedsLogin", "NeedsMachineAuth"].includes(snapshot.state)) return Promise.reject(new Error("Tailscale 재인증이 필요해요."));
+  if (recovering) return recovering;
+  if (snapshot.state === "Error") suspendTailscale();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45_000);
+  recovering = ensureTailscale(controller.signal, false).catch(error => {
+    if (controller.signal.aborted && snapshot.state !== "Running") suspendTailscale();
+    throw error;
+  }).finally(() => {
+    clearTimeout(timer);
+    recovering = undefined;
+  });
+  return recovering;
 }
 export function logoutTailscale() {
   port?.postMessage({ type: "logout" });

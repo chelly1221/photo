@@ -51,10 +51,10 @@ public class BackgroundSyncWorker extends Worker {
             new PeriodicWorkRequest.Builder(BackgroundSyncWorker.class,15,TimeUnit.MINUTES)
                 .setConstraints(constraints(c)).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,1,TimeUnit.MINUTES).build());
     }
-    static void soon(Context c){
-        if(!enabled(c))return;
+    static Operation soon(Context c){
+        if(!enabled(c))return null;
         ensureScheduled(c);
-        WorkManager.getInstance(c).enqueueUniqueWork(SOON,ExistingWorkPolicy.KEEP,
+        return WorkManager.getInstance(c).enqueueUniqueWork(SOON,ExistingWorkPolicy.KEEP,
             new OneTimeWorkRequest.Builder(BackgroundSyncWorker.class)
                 .setConstraints(constraints(c)).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,1,TimeUnit.MINUTES).build());
     }

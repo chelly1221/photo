@@ -52,6 +52,7 @@ import { usePhotoSelection, SelectionBar, SelectionMark } from "./PhotoSelection
 import { deletePhotos } from "./lib/delete-photos";
 import {
   ensureTailscale,
+  recoverTailscale,
   subscribeTailscale,
   getTailscaleSnapshot,
   getServerTailscaleSnapshot,
@@ -573,11 +574,28 @@ export default function App() {
     }
   }, []);
   useEffect(() => {
-    if (tail.state !== "Running") return;
-    void refreshStatus();
-    const timer = setInterval(() => void refreshStatus(), 10000);
-    return () => clearInterval(timer);
-  }, [tail.state, refreshStatus]);
+    if (!entered) return;
+    let stopped = false, refreshing = false;
+    const refresh = () => {
+      if (refreshing || (native && document.visibilityState === "hidden")) return;
+      refreshing = true;
+      void recoverTailscale().then(() => {
+        if (!stopped && !(native && document.visibilityState === "hidden")) return refreshStatus();
+      }).catch(() => {}).finally(() => { refreshing = false; });
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    window.addEventListener("online", refresh);
+    window.addEventListener("pageshow", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("pageshow", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [entered, refreshStatus]);
   const params = useCallback(() => {
     const p = new URLSearchParams({ limit: "120", sort });
     if (source) p.set("source", source);
@@ -810,7 +828,7 @@ export default function App() {
             aria-label="설정" title="설정" onClick={() => changeView("settings")}>
             <Settings size={21} aria-hidden="true" />
           </button>
-          <a className="icon-button" href="/downloads/photo-0.5.2.apk" aria-label="Android 앱 다운로드" title="Android 앱 다운로드">
+          <a className="icon-button" href="/downloads/photo-0.5.3.apk" aria-label="Android 앱 다운로드" title="Android 앱 다운로드">
             <Download size={21} aria-hidden="true" />
           </a>
         </div> : <button className="brand" onClick={() => changeView("all")}>
@@ -870,7 +888,7 @@ export default function App() {
           {!status?.sources.length && <p>연결한 폴더가 없어요.</p>}
         </div>
         {!isMobile && <div className="sidebar-bottom">
-          <a href="/downloads/photo-0.5.2.apk">
+          <a href="/downloads/photo-0.5.3.apk">
             <Download size={18} />
             Android 앱 다운로드
           </a>
@@ -1118,7 +1136,7 @@ export default function App() {
                     <LogOut size={21} aria-hidden="true" /><span>로그아웃</span>
                   </button>
               </section>
-              <footer className="preferences-version">사진 <span>0.5.2</span></footer>
+              <footer className="preferences-version">사진 <span>0.5.3</span></footer>
             </div>
           </div>
         )}
@@ -1180,7 +1198,7 @@ export default function App() {
                       <span />
                     </button>
                   ) : (
-                    <a className="secondary" href="/downloads/photo-0.5.2.apk">
+                    <a className="secondary" href="/downloads/photo-0.5.3.apk">
                       앱 다운로드
                       <Download size={16} />
                     </a>

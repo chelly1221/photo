@@ -131,6 +131,6 @@ export default function ConnectionScreen({ tail }: { tail: TailState }) {
       </div>
       <p className="connection-privacy"><ShieldCheck size={15} aria-hidden="true" />Tailscale 계정으로 안전하게 연결해요.</p>
     </main>
-    <footer className="connection-footer">{!native && <a href="/downloads/photo-0.5.2.apk"><Download size={16} />Android 앱 다운로드</a>}</footer>
+    <footer className="connection-footer">{!native && <a href="/downloads/photo-0.5.3.apk"><Download size={16} />Android 앱 다운로드</a>}</footer>
   </div>;
 }
